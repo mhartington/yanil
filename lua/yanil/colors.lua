@@ -21,7 +21,7 @@ local default_highlight = {
         Untracked = 'Comment',
         Dirty = 'Tag',
         Deleted = 'Operator',
-        Ignored = 'SpecialKey',
+        Ignored = 'Comment',
         Clean = 'Method',
         Unknown = 'Error',
     },
@@ -32,7 +32,8 @@ local M = {}
 function M.setup()
     for section, links in pairs(default_highlight) do
         for k, v in pairs(links) do
-            api.nvim_command(string.format('hi default link Yanil%s%s %s', section, k, v))
+            local group = string.format('Yanil%s%s', section, k)
+            api.nvim_set_hl(0, group, {link=v})
         end
     end
 end

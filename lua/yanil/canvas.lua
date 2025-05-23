@@ -39,7 +39,9 @@ local win_options = {
     'signcolumn=yes:1',
     'bufhidden=wipe',
     'filetype=Yanil',
+    -- 'winfixbuf'
 }
+local windowSide = 'left'
 
 function M.setup(opts)
     M.sections = opts.sections
@@ -70,6 +72,9 @@ function M.setup(opts)
 
     if opts.autocmds then
         utils.set_autocmds('yanil_canvas_custom', opts.autocmds)
+    end
+    if opts.side then
+      windowSide = opts.side
     end
 end
 
@@ -106,13 +111,17 @@ local function create_buf(name)
         api.nvim_buf_set_name(bufnr, name)
     end
     for k, v in ipairs(buffer_options) do
-        api.nvim_buf_set_option(bufnr, k, v)
+        api.nvim_set_option_value(bufnr, k, v)
     end
     return bufnr
 end
 
 local function create_win(bufnr)
-    api.nvim_command('noautocmd topleft vertical 30 new')
+    if windowSide == "left" then
+      api.nvim_command('noautocmd topleft vertical 30 new')
+    elseif windowSide == 'right' then
+      api.nvim_command('noautocmd botright vertical 30 new')
+  end
     api.nvim_command('noautocmd setlocal bufhidden=wipe')
 
     api.nvim_win_set_buf(0, bufnr)
@@ -224,7 +233,7 @@ function M.apply_changes(linenr, changes)
     end
     local bufnr = M.bufnr
     local texts = changes.texts or {}
-    if not vim.tbl_islist(texts) then
+    if not vim.islist(texts) then
         texts = { texts }
     end
     for _, text in ipairs(texts) do
@@ -232,11 +241,16 @@ function M.apply_changes(linenr, changes)
     end
 
     local highlights = changes.highlights or {}
-    if not vim.tbl_islist(highlights) then
+    if not vim.islist(highlights) then
         highlights = { highlights }
     end
     for _, hl in ipairs(highlights) do
-        api.nvim_buf_add_highlight(bufnr, hl.ns_id or utils.ns_id, hl.hl_group, linenr + hl.line, hl.col_start, hl.col_end)
+        -- api.nvim_buf_add_highlight(bufnr, hl.ns_id or utils.ns_id, hl.hl_group, linenr + hl.line, hl.col_start, hl.col_end)
+      if bufnr ~= nil then
+          -- nvim_buf_set_extmark({buffer}, {ns_id}, {line}, {col}, {opts})
+       vim.inspect(hl.hl_group)
+          api.nvim_buf_set_extmark( bufnr, hl.ns_id or utils.ns_id, linenr + hl.line, hl.col_start, { hl_group = hl.hl_group, end_col = hl.col_end })
+      end
     end
 
     -- TODO: set line relative to section start linenr
@@ -289,19 +303,27 @@ function M.in_edit_mode(fn)
     if not vim.api.nvim_buf_is_loaded(M.bufnr) then
         return
     end
-    api.nvim_buf_set_option(M.bufnr, 'modifiable', true)
+    -- api.nvim_buf_set_option(M.bufnr, 'modifiable', true)
+    api.nvim_set_option_value("modifiable", true, { buf = M.bufnr })
     local ok, err = pcall(fn)
     if not ok then
-        api.nvim_err_writeln(err)
+        api.nvim_echo({{err}}, true, {err=true})
+          -- api.nvim_err_writeln(err)
+
+
     end
-    api.nvim_buf_set_option(M.bufnr, 'modifiable', false)
+    api.nvim_set_option_value("modifiable", false, { buf = M.bufnr })
+    -- api.nvim_buf_set_option(M.bufnr, 'modifiable', false)
 end
 
+       -- function vim.startswith(s, prefix)
+       --   vim.validate('s', s, 'string')
+       --   vim.validate('prefix', prefix, 'string')
+       --   -- ...
+       -- end
 function M.register_hook(name, fn)
-    validate({
-        name = { name, 's' },
-        fn = { fn, 'f' },
-    })
+    validate('name', name,'string')
+    validate('fn', fn,'function')
     local fns = M.hooks[name] or {}
     table.insert(fns, fn)
     M.hooks[name] = fns

@@ -1,7 +1,7 @@
 local vim = vim
 local api = vim.api
 local validate = vim.validate
-local loop = vim.loop
+local loop = vim.uv
 
 local utils = require('yanil/utils')
 local path_sep = utils.path_sep
@@ -104,10 +104,11 @@ function FileNode:init()
 end
 
 function FileNode:is_binary()
-    if self._is_binary ~= nil then
-        return self._is_binary
-    end
-    self._is_binary = utils.is_binary(self.abs_path)
+    self._is_binary = false
+    -- if self._is_binary ~= nil then
+    --     return self._is_binary
+    -- end
+    -- self._is_binary = utils.is_binary(self.abs_path)
     return self._is_binary
 end
 
@@ -140,15 +141,17 @@ function DirNode:load(force)
 
     local handle, err = loop.fs_scandir(self.abs_path)
     if not handle then
-        api.nvim_err_writeln(string.format('scandir %s failed: %s', self.abs_path, err))
+        api.nvim_echo({ string.format('scandir %s failed: %s', self.abs_path, err) }, true, { err = true })
         return
     end
 
     self.entries = {}
 
-    for name, ft in function()
-        return loop.fs_scandir_next(handle)
-    end do
+    for name, ft in
+        function()
+            return loop.fs_scandir_next(handle)
+        end
+    do
         if not self:check_ignore(name) then
             local class = classes[ft] or FileNode
 
@@ -220,9 +223,7 @@ function DirNode:toggle()
 end
 
 function DirNode:iter(loaded)
-    validate({
-        loaded = { loaded, 'boolean', true },
-    })
+    validate('loaded', loaded, 'boolean', true)
     local stack = utils.new_stack()
     stack:push(self)
     local index = -1
@@ -268,9 +269,7 @@ function DirNode:find_node_by_path(path)
 end
 
 function Node:find_sibling(n)
-    validate({
-        n = { n, 'number' },
-    })
+    validate('n', n, 'number')
     local parent = self.parent
     if not parent then
         return
@@ -310,11 +309,10 @@ function DirNode:sort_entries(opts)
 end
 
 function Node:draw(opts, lines, highlights)
-    validate({
-        opts = { opts, 't', false },
-        lines = { lines, 't', true },
-        highlights = { highlights, 't', true },
-    })
+    validate('opts', opts, 'table', false)
+    validate('lines', lines, 'table', true)
+    validate('highlights', highlights, 'table', true)
+
     lines = lines or {}
     highlights = highlights or {}
 
@@ -326,7 +324,7 @@ function Node:draw(opts, lines, highlights)
         if text then
             table.insert(symbols, text)
             hls = hls or {}
-            if not vim.tbl_islist(hls) then
+            if not vim.islist(hls) then
                 hls = { hls }
             end
             for _, hl in ipairs(hls) do

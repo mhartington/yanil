@@ -1,6 +1,6 @@
 local vim = vim
 local api = vim.api
-local loop = vim.loop
+local loop = vim.uv
 
 local validate = vim.validate
 
@@ -75,11 +75,12 @@ function M.spawn(path, options, callback)
 end
 
 function M.is_binary(path)
-    validate({ path = { path, 'string' } })
+
+    validate('path', path,'string')
 
     local output = vim.fn.system('file -binLN ' .. path)
     if vim.v.shell_error > 0 then
-        api.nvim_err_writeln(string.format('check file %s mime encoding failed: %s', path, output))
+        api.nvim_echo({{string.format('check file %s mime encoding failed\n', path)}, {output}}, true, {err=true})
         return
     end
 
@@ -94,10 +95,10 @@ function M.callback(key, ...)
 end
 
 function M.register_callback(key, callback)
-    validate({
-        key = { key, 's' },
-        callback = { callback, 'f' },
-    })
+
+    validate('key', key,'string')
+    validate('callback', callback,'function')
+
     M.callbacks[key] = callback
 end
 
@@ -139,10 +140,8 @@ function M.set_autocmds(group, autocmds)
 end
 
 function M.table_equal(t1, t2)
-    validate({
-        t1 = { t1, 't' },
-        t2 = { t2, 't' },
-    })
+    validate('t1', t1,'table')
+    validate('t2', t2,'table')
     if vim.tbl_count(t1) ~= vim.tbl_count(t2) then
         return false
     end
